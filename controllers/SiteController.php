@@ -9,35 +9,13 @@ use yii\web\Response;
 use yii\filters\VerbFilter;
 use app\models\LoginForm;
 use app\models\ContactForm;
+use app\models\UrlForm;
+use app\models\Url;
+use app\models\Check;
+use Codeception\Lib\Interfaces\ActiveRecord;
 
 class SiteController extends Controller
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function behaviors()
-    {
-        return [
-            'access' => [
-                'class' => AccessControl::className(),
-                'only' => ['logout'],
-                'rules' => [
-                    [
-                        'actions' => ['logout'],
-                        'allow' => true,
-                        'roles' => ['@'],
-                    ],
-                ],
-            ],
-            'verbs' => [
-                'class' => VerbFilter::className(),
-                'actions' => [
-                    'logout' => ['post'],
-                ],
-            ],
-        ];
-    }
-
     /**
      * {@inheritdoc}
      */
@@ -61,68 +39,36 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
-        return $this->render('index');
-    }
+        $model = new UrlForm();
 
-    /**
-     * Login action.
-     *
-     * @return Response|string
-     */
-    public function actionLogin()
-    {
-        if (!Yii::$app->user->isGuest) {
-            return $this->goHome();
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            $add = new Url();
+            $add->url = $model->url;
+            $add->frequency = $model->frequency;
+            $add->current_time = 1;
+            $add->current_count = 0;
+            $add->count = $model->count;
+            $add->save();
+
+            return $this->render('index', ['model' => $model]);
+        } else {
+            return $this->render('index', ['model' => $model]);
         }
-
-        $model = new LoginForm();
-        if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
-        }
-
-        $model->password = '';
-        return $this->render('login', [
-            'model' => $model,
-        ]);
     }
 
     /**
-     * Logout action.
-     *
-     * @return Response
-     */
-    public function actionLogout()
-    {
-        Yii::$app->user->logout();
-
-        return $this->goHome();
-    }
-
-    /**
-     * Displays contact page.
-     *
-     * @return Response|string
-     */
-    public function actionContact()
-    {
-        $model = new ContactForm();
-        if ($model->load(Yii::$app->request->post()) && $model->contact(Yii::$app->params['adminEmail'])) {
-            Yii::$app->session->setFlash('contactFormSubmitted');
-
-            return $this->refresh();
-        }
-        return $this->render('contact', [
-            'model' => $model,
-        ]);
-    }
-
-    /**
-     * Displays about page.
+     * Displays admin page.
      *
      * @return string
      */
-    public function actionAbout()
+    public function actionAdmin()
     {
-        return $this->render('about');
+        $urls = Url::find()
+            ->asArray()
+            ->all();
+        $checks = Check::find()
+            ->asArray()
+            ->all();
+        return $this->render('admin', ['urls' => $urls, 'checks' => $checks]);
     }
 }
